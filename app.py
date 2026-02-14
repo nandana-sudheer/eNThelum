@@ -155,31 +155,21 @@ def user_change_password():
 @app.route('/user_dashboard', methods=['GET', 'POST'])
 @login_required
 def user_dashboard():
-    if current_user.role != 'user':
-        return "Access Denied", 403
-
     current_code = None
     if request.method == 'POST':
         action = request.form.get('action')
-
         if action == 'generate_code':
-            # FIX: Using time.time() ensures we match the ESP32's Unix Epoch logic
             totp = pyotp.TOTP(current_user.secret_code)
-            current_code = totp.at(time.time())
+            current_code = totp.at(time.time())  # Sync with hardware
 
-            new_log = CodeLog(user_id=current_user.id,
-                              username=current_user.username, code=current_code)
+            # This part updates the Admin logs
+            new_log = CodeLog(
+                user_id=current_user.id,
+                username=current_user.username,
+                code=current_code
+            )
             db.session.add(new_log)
-            db.session.commit()
-
-        elif action == 'send_comment':
-            comment_text = request.form.get('comment_text')
-            if comment_text:
-                new_comment = Comment(
-                    user_id=current_user.id, username=current_user.username, text=comment_text)
-                db.session.add(new_comment)
-                db.session.commit()
-                flash('Comment sent to admin!', 'success')
+            db.session.commit()  # Save to database
 
     return render_template('user_dashboard.html', code=current_code)
 
