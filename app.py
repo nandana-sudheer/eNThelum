@@ -5,7 +5,7 @@ from werkzeug.security import generate_password_hash, check_password_hash
 import pyotp
 import time
 import pytz
-from datetime import datetime
+from datetime import datetime, timezone
 
 app = Flask(__name__)
 app.config['SECRET_KEY'] = 'your_super_secret_key'
@@ -33,7 +33,8 @@ class CodeLog(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(150), nullable=False)
     code = db.Column(db.String(10), nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.now)
+    timestamp = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 class Comment(db.Model):
@@ -41,7 +42,8 @@ class Comment(db.Model):
     user_id = db.Column(db.Integer, nullable=False)
     username = db.Column(db.String(150), nullable=False)
     text = db.Column(db.Text, nullable=False)
-    timestamp = db.Column(db.DateTime, default=datetime.now)
+    timestamp = db.Column(
+        db.DateTime, default=lambda: datetime.now(timezone.utc))
 
 
 @login_manager.user_loader
@@ -163,21 +165,28 @@ def user_dashboard():
         action = request.form.get('action')
 
         if action == 'generate_code':
-            # 1. Generate the code using Unix time (matches ESP32)
+            # 1. Generate the code
             totp = pyotp.TOTP(current_user.secret_code)
             current_code = totp.at(time.time())
 
-            # 2. CREATE THE LOG ENTRY (This is the missing part)
+            # 2. CREATE THE LOG ENTRY
+            # Use current_user.id and current_user.username directly
             new_log = CodeLog(
                 user_id=current_user.id,
                 username=current_user.username,
-                code=current_code
+                code=current_code,
+                timestamp=datetime.now()  # Explicitly set time for Render logs
             )
 
-            # 3. SAVE TO DATABASE
-            db.session.add(new_log)
-            db.session.commit()
-            flash('New security code generated and logged!', 'success')
+            # 3. SAVE AND COMMIT
+            try:
+                db.session.add(new_log)
+                db.session.commit()
+                flash('New security code generated and logged!', 'success')
+            except Exception as e:
+                db.session.rollback()
+                print(f"Database Error: {e}")
+                flash('Error logging the code request.', 'danger')
 
         elif action == 'send_comment':
             comment_text = request.form.get('comment_text')
