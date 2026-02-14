@@ -155,20 +155,30 @@ def user_change_password():
 @app.route('/user_dashboard', methods=['GET', 'POST'])
 @login_required
 def user_dashboard():
+    if current_user.role != 'user':
+        return "Access Denied", 403
+
     current_code = None
     if request.method == 'POST':
         action = request.form.get('action')
 
-        # Action 1: Generate TOTP Code (Existing)
         if action == 'generate_code':
+            # 1. Generate the code using Unix time (matches ESP32)
             totp = pyotp.TOTP(current_user.secret_code)
             current_code = totp.at(time.time())
-            new_log = CodeLog(user_id=current_user.id,
-                              username=current_user.username, code=current_code)
+
+            # 2. CREATE THE LOG ENTRY (This is the missing part)
+            new_log = CodeLog(
+                user_id=current_user.id,
+                username=current_user.username,
+                code=current_code
+            )
+
+            # 3. SAVE TO DATABASE
             db.session.add(new_log)
             db.session.commit()
+            flash('New security code generated and logged!', 'success')
 
-        # Action 2: Send Comment (MISSING PART - ADD THIS)
         elif action == 'send_comment':
             comment_text = request.form.get('comment_text')
             if comment_text:
@@ -178,10 +188,8 @@ def user_dashboard():
                     text=comment_text
                 )
                 db.session.add(new_comment)
-                db.session.commit()  # This writes it to database.db
+                db.session.commit()
                 flash('Comment sent to admin!', 'success')
-            else:
-                flash('Comment cannot be empty.', 'info')
 
     return render_template('user_dashboard.html', code=current_code)
 
