@@ -157,6 +157,7 @@ def user_change_password():
 @app.route('/user_dashboard', methods=['GET', 'POST'])
 @login_required
 def user_dashboard():
+    # Only allow users with the 'user' role to access this dashboard
     if current_user.role != 'user':
         return "Access Denied", 403
 
@@ -164,30 +165,33 @@ def user_dashboard():
     if request.method == 'POST':
         action = request.form.get('action')
 
+        # Logic for "Generate Code" button
         if action == 'generate_code':
-            # 1. Generate the code
+            # 1. Generate the 6-digit TOTP code using Unix time
+            # time.time() is used to match the ESP32's raw Unix Epoch calculation
             totp = pyotp.TOTP(current_user.secret_code)
             current_code = totp.at(time.time())
 
-            # 2. CREATE THE LOG ENTRY
-            # Use current_user.id and current_user.username directly
+            # 2. Create the Log entry for the Admin Dashboard
+            # We do not pass a manual timestamp here; the Model's lambda will
+            # automatically use the modern timezone.utc standard
             new_log = CodeLog(
                 user_id=current_user.id,
                 username=current_user.username,
-                code=current_code,
-                timestamp=datetime.now()  # Explicitly set time for Render logs
+                code=current_code
             )
 
-            # 3. SAVE AND COMMIT
+            # 3. Commit to the database with error handling
             try:
                 db.session.add(new_log)
                 db.session.commit()
                 flash('New security code generated and logged!', 'success')
             except Exception as e:
-                db.session.rollback()
-                print(f"Database Error: {e}")
-                flash('Error logging the code request.', 'danger')
+                db.session.rollback()  # Prevent database locking
+                print(f"Logging Error: {e}")
+                flash('Could not log the request. Please try again.', 'danger')
 
+        # Logic for "Send Message" button
         elif action == 'send_comment':
             comment_text = request.form.get('comment_text')
             if comment_text:
@@ -196,9 +200,14 @@ def user_dashboard():
                     username=current_user.username,
                     text=comment_text
                 )
-                db.session.add(new_comment)
-                db.session.commit()
-                flash('Comment sent to admin!', 'success')
+                try:
+                    db.session.add(new_comment)
+                    db.session.commit()
+                    flash('Comment sent to admin!', 'success')
+                except Exception as e:
+                    db.session.rollback()
+                    print(f"Comment Error: {e}")
+                    flash('Error sending message.', 'danger')
 
     return render_template('user_dashboard.html', code=current_code)
 
