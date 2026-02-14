@@ -2,7 +2,7 @@
   <img src="./img.png" alt="Project Banner" width="100%">
 </p>
 
-# [Project Name] 🎯
+# SecureSync 🎯
 
 ## Basic Details
 
@@ -56,15 +56,19 @@ List the key features of your project:
 ### For Hardware:
 
 #### Components Required
-1	ESP32
-2	OLED
-3	4*4 matrix keypad
-4	Cam Lock
-5	Servo Motor
-6	RTC Module
-7	Bread Board
-8	Jumper Wires
-9	Power Bank
+
+| Sl. No. | Component |
+| --- | --- |
+| 1 | ESP32 Microcontroller |
+| 2 | OLED Display |
+| 3 | 4x4 Matrix Keypad |
+| 4 | Cam Lock |
+| 5 | Servo Motor |
+| 6 | RTC Module (Real Time Clock) |
+| 7 | Breadboard |
+| 8 | Jumper Wires |
+| 9 | Power Bank |
+
 
 #### Circuit Setup
 | Component | Pin Label | ESP32 GPIO | Function |
