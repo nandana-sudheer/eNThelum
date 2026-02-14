@@ -158,18 +158,30 @@ def user_dashboard():
     current_code = None
     if request.method == 'POST':
         action = request.form.get('action')
+
+        # Action 1: Generate TOTP Code (Existing)
         if action == 'generate_code':
             totp = pyotp.TOTP(current_user.secret_code)
-            current_code = totp.at(time.time())  # Sync with hardware
-
-            # This part updates the Admin logs
-            new_log = CodeLog(
-                user_id=current_user.id,
-                username=current_user.username,
-                code=current_code
-            )
+            current_code = totp.at(time.time())
+            new_log = CodeLog(user_id=current_user.id,
+                              username=current_user.username, code=current_code)
             db.session.add(new_log)
-            db.session.commit()  # Save to database
+            db.session.commit()
+
+        # Action 2: Send Comment (MISSING PART - ADD THIS)
+        elif action == 'send_comment':
+            comment_text = request.form.get('comment_text')
+            if comment_text:
+                new_comment = Comment(
+                    user_id=current_user.id,
+                    username=current_user.username,
+                    text=comment_text
+                )
+                db.session.add(new_comment)
+                db.session.commit()  # This writes it to database.db
+                flash('Comment sent to admin!', 'success')
+            else:
+                flash('Comment cannot be empty.', 'info')
 
     return render_template('user_dashboard.html', code=current_code)
 
